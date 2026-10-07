@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "storm_pop_particles",
+  "version": "${version}",
+  "name": "STORM's pop particles",
+  "description": "7 STORM pop-particle styles when a totem pops. Type /storm in chat to open the HUD.\n\nInspired by impact flash-lite by flamesentinell.",
+  "authors": [ "STORM" ],
+  "contributors": [ "Inspired by impact flash-lite by flamesentinell" ],
+  "license": "MIT",
+  "environment": "client",
+  "icon": "assets/storm_pop_particles/icon.png",
+  "mixins": [ "storm_pop_particles.mixins.json" ],
+  "entrypoints": {
+    "client": [ "com.stormpop.StormClient" ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11"
+  }
+}
