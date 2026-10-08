@@ -1,21 +1,28 @@
 package com.stormpop;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleManager;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.math.MathHelper;
 
 import java.util.Random;
 
 /**
- * Big STORM pop effects. Uses vanilla dust particles at their maximum size
- * and spreads them over about one player height (1.8 blocks).
+ * Big, short-lived STORM pop effects: real flame-shaped fire particles tinted
+ * in the style colour, plus coloured dust rings/bursts around them.
  */
 public final class StormParticles {
     private static final Random RNG = new Random();
     private static final float BIG = 4.0f;   // maximum size dust allows
     private static final double H = 0.9;     // half of a player's height
+
+    // How long particles live, in ticks (20 ticks = 1 second). Lower = disappear faster.
+    private static final int LIFE_MIN = 36;
+    private static final int LIFE_MAX = 44;
 
     private StormParticles() {}
 
@@ -24,23 +31,20 @@ public final class StormParticles {
         ParticleManager pm = MinecraftClient.getInstance().particleManager;
         int n = StormConfig.intensity;
 
+        fire(pm, style, x, y, z);
+
         switch (style) {
             case BLUE -> {
-                // three big pulse rings: feet, middle, head
-                int count = 24 * n;
+                int count = 20 * n;
                 for (double lvl : new double[] { -H, 0, H }) {
                     for (int i = 0; i < count; i++) {
                         double a = Math.PI * 2 * i / count;
                         dust(pm, style.color, x, y + lvl, z, Math.cos(a) * 7.0, 0, Math.sin(a) * 7.0);
                     }
                 }
-                for (int i = 0; i < count; i++) {
-                    double a = Math.PI * 2 * i / count;
-                    dust(pm, style.color, x, y, z, Math.cos(a) * 6.0, Math.sin(a) * 6.0, 0);
-                }
             }
             case LIME -> {
-                for (int i = 0; i < 40 * n; i++) {
+                for (int i = 0; i < 30 * n; i++) {
                     double[] d = randomDir();
                     double s = 4.0 + RNG.nextDouble() * 5.0;
                     dust(pm, style.color, x, y + (RNG.nextDouble() - 0.5) * 2 * H, z,
@@ -48,12 +52,12 @@ public final class StormParticles {
                 }
             }
             case GOLD -> {
-                for (int i = 0; i < 10 * n; i++) {
+                for (int i = 0; i < 8 * n; i++) {
                     double sx = dirX + (RNG.nextDouble() - 0.5) * 1.0;
                     double sz = dirZ + (RNG.nextDouble() - 0.5) * 1.0;
                     double sy = (RNG.nextDouble() - 0.5) * 0.5;
                     double startY = y + (RNG.nextDouble() - 0.5) * 2 * H;
-                    for (int k = 0; k < 8; k++) {
+                    for (int k = 0; k < 6; k++) {
                         double off = k * 0.22;
                         dust(pm, style.color, x + sx * off, startY + sy * off, z + sz * off,
                                 sx * 10.0, sy * 10.0, sz * 10.0);
@@ -61,7 +65,7 @@ public final class StormParticles {
                 }
             }
             case PINK -> {
-                int count = 40 * n;
+                int count = 30 * n;
                 for (int i = 0; i < count; i++) {
                     double a = i * 0.45;
                     double h = -H + (2 * H) * i / count;
@@ -70,7 +74,7 @@ public final class StormParticles {
                 }
             }
             case TEAL -> {
-                int count = 20 * n;
+                int count = 18 * n;
                 for (int i = 0; i < count; i++) {
                     double a = Math.PI * 2 * i / count;
                     dust(pm, style.color, x, y - H + 0.2, z, Math.cos(a) * 5.0, 0, Math.sin(a) * 5.0);
@@ -85,13 +89,13 @@ public final class StormParticles {
                         double yy = y + 2.2 - i * 0.1;
                         cx += (RNG.nextDouble() - 0.5) * 0.3;
                         cz += (RNG.nextDouble() - 0.5) * 0.3;
-                        pm.addParticle(new DustColorTransitionParticleEffect(0xFFFFFF, 0x66E0FF, BIG),
+                        add(pm, new DustColorTransitionParticleEffect(0xFFFFFF, 0x66E0FF, BIG),
                                 cx, yy, cz, 0, 0, 0);
                     }
                 }
             }
             case RAINBOW -> {
-                for (int i = 0; i < 40 * n; i++) {
+                for (int i = 0; i < 30 * n; i++) {
                     double[] d = randomDir();
                     double s = 4.0 + RNG.nextDouble() * 5.0;
                     int rgb = MathHelper.hsvToRgb(RNG.nextFloat(), 0.9f, 1.0f);
@@ -102,9 +106,42 @@ public final class StormParticles {
         }
     }
 
+    /** Real flame-shaped particles over the whole body, tinted in the style colour. */
+    private static void fire(ParticleManager pm, StormStyle style, double x, double y, double z) {
+        int n = StormConfig.intensity;
+        // warm styles use the normal flame sprite, cool styles use the soul-fire sprite
+        boolean warm = style == StormStyle.GOLD || style == StormStyle.PINK;
+        ParticleEffect type = warm ? ParticleTypes.FLAME : ParticleTypes.SOUL_FIRE_FLAME;
+
+        for (int i = 0; i < 40 * n; i++) {
+            double px = x + (RNG.nextDouble() - 0.5) * 0.9;
+            double pz = z + (RNG.nextDouble() - 0.5) * 0.9;
+            double py = y + (RNG.nextDouble() - 0.5) * 2 * H;
+            Particle p = pm.addParticle(type, px, py, pz,
+                    (RNG.nextDouble() - 0.5) * 0.06, 0.08 + RNG.nextDouble() * 0.12, (RNG.nextDouble() - 0.5) * 0.06);
+            if (p == null) continue;
+
+            int rgb = style == StormStyle.RAINBOW
+                    ? MathHelper.hsvToRgb(RNG.nextFloat(), 0.9f, 1.0f)
+                    : style.color;
+            p.setColor(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
+            p.scale(2.5f + RNG.nextFloat() * 1.5f);
+            p.setMaxAge(LIFE_MIN + RNG.nextInt(LIFE_MAX - LIFE_MIN + 1));
+        }
+    }
+
     private static void dust(ParticleManager pm, int rgb,
                              double x, double y, double z, double vx, double vy, double vz) {
-        pm.addParticle(new DustParticleEffect(rgb, BIG), x, y, z, vx, vy, vz);
+        add(pm, new DustParticleEffect(rgb, BIG), x, y, z, vx, vy, vz);
+    }
+
+    /** Adds a particle and makes it disappear quickly. */
+    private static void add(ParticleManager pm, ParticleEffect effect,
+                            double x, double y, double z, double vx, double vy, double vz) {
+        Particle p = pm.addParticle(effect, x, y, z, vx, vy, vz);
+        if (p != null) {
+            p.setMaxAge(LIFE_MIN + RNG.nextInt(LIFE_MAX - LIFE_MIN + 1));
+        }
     }
 
     private static double[] randomDir() {
