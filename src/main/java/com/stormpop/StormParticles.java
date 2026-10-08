@@ -9,102 +9,102 @@ import net.minecraft.util.math.MathHelper;
 import java.util.Random;
 
 /**
- * Spawns the pop effects. Uses vanilla dust particles (any RGB colour), so no
- * custom particle classes are needed. Dust particles scale incoming velocity
- * down a lot, so the speeds below look large on purpose - tweak to taste.
+ * Big STORM pop effects. Uses vanilla dust particles at their maximum size
+ * and spreads them over about one player height (1.8 blocks).
  */
 public final class StormParticles {
     private static final Random RNG = new Random();
+    private static final float BIG = 4.0f;   // maximum size dust allows
+    private static final double H = 0.9;     // half of a player's height
 
     private StormParticles() {}
 
-    /** dirX/dirZ = horizontal direction pointing from the attacker towards the target. */
+    /** y = middle of the target. dirX/dirZ = horizontal direction away from attacker. */
     public static void spawn(StormStyle style, double x, double y, double z, double dirX, double dirZ) {
         ParticleManager pm = MinecraftClient.getInstance().particleManager;
         int n = StormConfig.intensity;
 
         switch (style) {
             case BLUE -> {
-                // pulse: one flat ring + one tilted ring
-                int count = 20 * n;
+                // three big pulse rings: feet, middle, head
+                int count = 24 * n;
+                for (double lvl : new double[] { -H, 0, H }) {
+                    for (int i = 0; i < count; i++) {
+                        double a = Math.PI * 2 * i / count;
+                        dust(pm, style.color, x, y + lvl, z, Math.cos(a) * 7.0, 0, Math.sin(a) * 7.0);
+                    }
+                }
                 for (int i = 0; i < count; i++) {
                     double a = Math.PI * 2 * i / count;
-                    dust(pm, style.color, 1.0f, x, y, z, Math.cos(a) * 4.0, 0, Math.sin(a) * 4.0);
-                    dust(pm, style.color, 0.8f, x, y, z, Math.cos(a) * 3.0, Math.sin(a) * 3.0, 0);
+                    dust(pm, style.color, x, y, z, Math.cos(a) * 6.0, Math.sin(a) * 6.0, 0);
                 }
             }
             case LIME -> {
-                // spark: random sphere burst
-                for (int i = 0; i < 18 * n; i++) {
+                for (int i = 0; i < 40 * n; i++) {
                     double[] d = randomDir();
-                    double s = 2.0 + RNG.nextDouble() * 3.0;
-                    dust(pm, style.color, 0.6f, x, y, z, d[0] * s, d[1] * s, d[2] * s);
+                    double s = 4.0 + RNG.nextDouble() * 5.0;
+                    dust(pm, style.color, x, y + (RNG.nextDouble() - 0.5) * 2 * H, z,
+                            d[0] * s, d[1] * s, d[2] * s);
                 }
             }
             case GOLD -> {
-                // streaks: short lines of particles shooting away from the attacker
-                for (int i = 0; i < 6 * n; i++) {
-                    double sx = dirX + (RNG.nextDouble() - 0.5) * 0.9;
-                    double sz = dirZ + (RNG.nextDouble() - 0.5) * 0.9;
-                    double sy = (RNG.nextDouble() - 0.3) * 0.6;
-                    for (int k = 0; k < 6; k++) {
-                        double off = k * 0.12;
-                        dust(pm, style.color, 0.8f - k * 0.08f,
-                                x + sx * off, y + sy * off, z + sz * off,
-                                sx * 7.0, sy * 7.0, sz * 7.0);
+                for (int i = 0; i < 10 * n; i++) {
+                    double sx = dirX + (RNG.nextDouble() - 0.5) * 1.0;
+                    double sz = dirZ + (RNG.nextDouble() - 0.5) * 1.0;
+                    double sy = (RNG.nextDouble() - 0.5) * 0.5;
+                    double startY = y + (RNG.nextDouble() - 0.5) * 2 * H;
+                    for (int k = 0; k < 8; k++) {
+                        double off = k * 0.22;
+                        dust(pm, style.color, x + sx * off, startY + sy * off, z + sz * off,
+                                sx * 10.0, sy * 10.0, sz * 10.0);
                     }
                 }
             }
             case PINK -> {
-                // spiral rising around the target
-                int count = 24 * n;
+                int count = 40 * n;
                 for (int i = 0; i < count; i++) {
-                    double a = i * 0.55;
-                    double h = i * 0.045;
-                    dust(pm, style.color, 0.8f,
-                            x + Math.cos(a) * 0.6, y - 0.4 + h, z + Math.sin(a) * 0.6,
-                            -Math.sin(a) * 1.5, 1.5, Math.cos(a) * 1.5);
+                    double a = i * 0.45;
+                    double h = -H + (2 * H) * i / count;
+                    dust(pm, style.color, x + Math.cos(a) * 0.9, y + h, z + Math.sin(a) * 0.9,
+                            -Math.sin(a) * 2.5, 1.5, Math.cos(a) * 2.5);
                 }
             }
             case TEAL -> {
-                // double shockwave: two flat rings at different speeds
-                int count = 16 * n;
+                int count = 20 * n;
                 for (int i = 0; i < count; i++) {
                     double a = Math.PI * 2 * i / count;
-                    dust(pm, style.color, 0.9f, x, y - 0.3, z, Math.cos(a) * 2.5, 0, Math.sin(a) * 2.5);
-                    dust(pm, style.color, 1.1f, x, y - 0.3, z, Math.cos(a) * 5.0, 0, Math.sin(a) * 5.0);
+                    dust(pm, style.color, x, y - H + 0.2, z, Math.cos(a) * 5.0, 0, Math.sin(a) * 5.0);
+                    dust(pm, style.color, x, y - H + 0.2, z, Math.cos(a) * 9.0, 0, Math.sin(a) * 9.0);
                 }
             }
             case WHITE -> {
-                // lightning bolt: zigzag from above down to the target
-                int bolts = n;
-                for (int b = 0; b < bolts; b++) {
+                for (int b = 0; b < n; b++) {
                     double cx = x + (RNG.nextDouble() - 0.5) * 0.4;
                     double cz = z + (RNG.nextDouble() - 0.5) * 0.4;
-                    for (int i = 0; i < 24; i++) {
-                        double yy = y + 2.5 - i * 0.12;
-                        cx += (RNG.nextDouble() - 0.5) * 0.25;
-                        cz += (RNG.nextDouble() - 0.5) * 0.25;
-                        pm.addParticle(new DustColorTransitionParticleEffect(0xFFFFFF, 0x66E0FF, 0.9f),
+                    for (int i = 0; i < 32; i++) {
+                        double yy = y + 2.2 - i * 0.1;
+                        cx += (RNG.nextDouble() - 0.5) * 0.3;
+                        cz += (RNG.nextDouble() - 0.5) * 0.3;
+                        pm.addParticle(new DustColorTransitionParticleEffect(0xFFFFFF, 0x66E0FF, BIG),
                                 cx, yy, cz, 0, 0, 0);
                     }
                 }
             }
             case RAINBOW -> {
-                // multicolour burst, random hue per particle
-                for (int i = 0; i < 20 * n; i++) {
+                for (int i = 0; i < 40 * n; i++) {
                     double[] d = randomDir();
-                    double s = 2.0 + RNG.nextDouble() * 3.0;
+                    double s = 4.0 + RNG.nextDouble() * 5.0;
                     int rgb = MathHelper.hsvToRgb(RNG.nextFloat(), 0.9f, 1.0f);
-                    dust(pm, rgb, 0.7f, x, y, z, d[0] * s, d[1] * s, d[2] * s);
+                    dust(pm, rgb, x, y + (RNG.nextDouble() - 0.5) * 2 * H, z,
+                            d[0] * s, d[1] * s, d[2] * s);
                 }
             }
         }
     }
 
-    private static void dust(ParticleManager pm, int rgb, float scale,
+    private static void dust(ParticleManager pm, int rgb,
                              double x, double y, double z, double vx, double vy, double vz) {
-        pm.addParticle(new DustParticleEffect(rgb, scale), x, y, z, vx, vy, vz);
+        pm.addParticle(new DustParticleEffect(rgb, BIG), x, y, z, vx, vy, vz);
     }
 
     private static double[] randomDir() {
