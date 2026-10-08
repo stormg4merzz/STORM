@@ -7,8 +7,11 @@ import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.text.Text;
 
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -27,6 +30,8 @@ public final class StormParticles {
     private static final int FRAMES = 8;     // animation steps per pop
 
     private static final ConcurrentLinkedQueue<Task> PENDING = new ConcurrentLinkedQueue<>();
+    private static final Set<String> REPORTED = new HashSet<>();
+    private static String currentStyle = "";
     private static long lastMs = 0;
     private static double lastX, lastY, lastZ;
 
@@ -79,6 +84,13 @@ public final class StormParticles {
         double R = StormConfig.reach();                 // how far the effect spreads (blocks)
         double h = Math.max(0.9, R * 0.5);              // half height of the effect
         double p = (f + 1) / (double) FRAMES;           // progress 0..1
+        currentStyle = style.displayName;
+        if (f == 0) {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.player != null) {
+                mc.player.sendMessage(Text.literal(style.displayName), true);
+            }
+        }
 
         switch (style) {
             case BLUE -> {
@@ -197,7 +209,11 @@ public final class StormParticles {
             Particle fp = add(pm, type, x + pt[0], py, z + pt[1],
                     (RNG.nextDouble() - 0.5) * 0.04, 0.07 + RNG.nextDouble() * 0.10, (RNG.nextDouble() - 0.5) * 0.04);
             if (fp != null) {
-                fp.scale(minScale + RNG.nextFloat() * extraScale);
+                try {
+                    fp.scale(minScale + RNG.nextFloat() * extraScale);
+                } catch (RuntimeException e) {
+                    report("scale", e);
+                }
             }
         }
     }
@@ -211,14 +227,28 @@ public final class StormParticles {
         }
     }
 
-    /** Adds a particle and sets how long it lives (HUD "Time"). */
+    /** Adds one particle and sets how long it lives (HUD "Time"). A failing particle never stops the others. */
     private static Particle add(ParticleManager pm, ParticleEffect effect,
                                 double x, double y, double z, double vx, double vy, double vz) {
-        Particle particle = pm.addParticle(effect, x, y, z, vx, vy, vz);
-        if (particle != null) {
-            particle.setMaxAge(lifeTicks());
+        try {
+            Particle particle = pm.addParticle(effect, x, y, z, vx, vy, vz);
+            if (particle != null) {
+                particle.setMaxAge(lifeTicks());
+            }
+            return particle;
+        } catch (RuntimeException e) {
+            report(effect.getClass().getSimpleName(), e);
+            return null;
         }
-        return particle;
+    }
+
+    /** Tells you once in chat if a particle type fails, so it can be fixed. */
+    private static void report(String what, Throwable t) {
+        if (!REPORTED.add(currentStyle + " " + what)) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player != null) {
+            mc.player.sendMessage(Text.literal("[STORM] " + currentStyle + " / " + what + " failed: " + t), false);
+        }
     }
 
     /** Particle lifetime in ticks (20 ticks = 1 second). */
