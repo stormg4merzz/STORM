@@ -70,7 +70,7 @@ public final class StormParticles {
 
         for (int f = 0; f < FRAMES; f++) {
             final int frame = f;
-            PENDING.add(new Task(f, () -> frame(style, x, y, z, frame)));
+            PENDING.add(new Task(f, () -> frame(StormConfig.style, x, y, z, frame)));
         }
     }
 
@@ -93,6 +93,7 @@ public final class StormParticles {
                 }
             }
             case LIME -> {
+                flames(pm, ParticleTypes.HAPPY_VILLAGER, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
                 // sparks flying out in a sphere
                 for (int i = 0; i < cnt(12, R); i++) {
                     double[] d = randomDir();
@@ -102,6 +103,7 @@ public final class StormParticles {
                 }
             }
             case GOLD -> {
+                flames(pm, ParticleTypes.WAX_ON, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
                 // streaks shooting out all around, each with a short tail
                 for (int i = 0; i < cnt(8, R); i++) {
                     double a = RNG.nextDouble() * Math.PI * 2;
@@ -114,6 +116,7 @@ public final class StormParticles {
                 }
             }
             case PINK -> {
+                flames(pm, ParticleTypes.CHERRY_LEAVES, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
                 // two spiral arms that turn and rise
                 int n = cnt(10, R);
                 for (int arm = 0; arm < 2; arm++) {
@@ -126,6 +129,7 @@ public final class StormParticles {
                 }
             }
             case TEAL -> {
+                flames(pm, ParticleTypes.WARPED_SPORE, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
                 // shockwave rings along the ground
                 for (double rr : new double[] { R * p, R * p * 0.6 }) {
                     int pts = ringPoints(rr);
@@ -140,6 +144,7 @@ public final class StormParticles {
                 }
             }
             case WHITE -> {
+                flames(pm, ParticleTypes.END_ROD, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
                 // lightning bolts, new ones every 3rd step
                 if (f % 3 == 0) {
                     int bolts = (int) Math.max(1, Math.round(R));
@@ -180,13 +185,19 @@ public final class StormParticles {
     /** Flame-shaped particles rising from the ground to head height inside the effect area. */
     private static void flames(ParticleManager pm, ParticleEffect type,
                                double x, double y, double z, double R, double h, int count) {
+        flames(pm, type, x, y, z, R, h, count, 2.5f, 1.5f);
+    }
+
+    private static void flames(ParticleManager pm, ParticleEffect type,
+                               double x, double y, double z, double R, double h, int count,
+                               float minScale, float extraScale) {
         for (int i = 0; i < count; i++) {
             double[] pt = discPoint(R);
             double py = y - h + RNG.nextDouble() * h * 1.4;
             Particle fp = add(pm, type, x + pt[0], py, z + pt[1],
                     (RNG.nextDouble() - 0.5) * 0.04, 0.07 + RNG.nextDouble() * 0.10, (RNG.nextDouble() - 0.5) * 0.04);
             if (fp != null) {
-                fp.scale(2.5f + RNG.nextFloat() * 1.5f);
+                fp.scale(minScale + RNG.nextFloat() * extraScale);
             }
         }
     }

@@ -12,12 +12,12 @@ import java.util.Properties;
 public final class StormConfig {
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("storm_pop_particles.properties");
 
-    public static boolean enabled = true;
-    public static StormStyle style = StormStyle.BLUE;
+    public static volatile boolean enabled = true;
+    public static volatile StormStyle style = StormStyle.BLUE;
     /** 1 = light, 2 = normal, 3 = heavy */
-    public static int intensity = 2;
+    public static volatile int intensity = 2;
     /** how long particles stay: 1, 2 or 3 seconds */
-    public static int lifeSeconds = 1;
+    public static volatile int lifeSeconds = 1;
 
     private StormConfig() {}
 
