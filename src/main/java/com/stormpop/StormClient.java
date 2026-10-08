@@ -6,7 +6,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 /**
- * STORM's pop particles
+ * Better POP by STORMG4MERX
  * Inspired by impact flash-lite by flamesentinell.
  *
  * The effect itself is triggered from mixin/ClientPlayNetworkHandlerMixin
@@ -27,6 +27,7 @@ public class StormClient implements ClientModInitializer {
                 })));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            StormParticles.tick();
             if (openHudNextTick) {
                 openHudNextTick = false;
                 client.setScreen(new StormHudScreen(null));

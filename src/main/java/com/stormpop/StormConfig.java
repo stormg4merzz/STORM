@@ -16,8 +16,15 @@ public final class StormConfig {
     public static StormStyle style = StormStyle.BLUE;
     /** 1 = light, 2 = normal, 3 = heavy */
     public static int intensity = 2;
+    /** how long particles stay: 1, 2 or 3 seconds */
+    public static int lifeSeconds = 1;
 
     private StormConfig() {}
+
+    /** Spread of the effect in blocks: Low = 1, Normal = 2.5, High = 3.5. */
+    public static double reach() {
+        return switch (intensity) { case 1 -> 1.0; case 3 -> 3.5; default -> 2.5; };
+    }
 
     public static void load() {
         if (!Files.exists(FILE)) return;
@@ -26,6 +33,7 @@ public final class StormConfig {
             p.load(r);
             enabled = Boolean.parseBoolean(p.getProperty("enabled", "true"));
             intensity = Math.max(1, Math.min(3, Integer.parseInt(p.getProperty("intensity", "2"))));
+            lifeSeconds = Math.max(1, Math.min(3, Integer.parseInt(p.getProperty("life", "1"))));
             try {
                 style = StormStyle.valueOf(p.getProperty("style", "BLUE").trim().toUpperCase());
             } catch (IllegalArgumentException ignored) {
@@ -42,6 +50,7 @@ public final class StormConfig {
             p.setProperty("enabled", Boolean.toString(enabled));
             p.setProperty("style", style.name());
             p.setProperty("intensity", Integer.toString(intensity));
+            p.setProperty("life", Integer.toString(lifeSeconds));
             p.store(w, "STORM's pop particles - Inspired by impact flash-lite by flamesentinell");
         } catch (IOException e) {
             System.err.println("[STORM] could not save config: " + e.getMessage());

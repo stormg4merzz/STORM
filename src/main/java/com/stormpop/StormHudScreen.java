@@ -5,7 +5,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,16 +15,17 @@ public class StormHudScreen extends Screen {
     private final List<ButtonWidget> styleButtons = new ArrayList<>();
     private ButtonWidget toggleButton;
     private ButtonWidget intensityButton;
+    private ButtonWidget timeButton;
 
     public StormHudScreen(Screen parent) {
-        super(Text.literal("STORM's pop particles"));
+        super(Text.literal("Better POP by STORMG4MERX"));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
         styleButtons.clear();
-        int left = this.width / 2 - 155;
+        int left = this.width / 2 - 175;
         int right = this.width / 2 + 5;
         int top = this.height / 2 - 70;
 
@@ -47,21 +47,26 @@ public class StormHudScreen extends Screen {
             StormConfig.enabled = !StormConfig.enabled;
             StormConfig.save();
             refreshLabels();
-        }).dimensions(right, top, 150, 20).build();
+        }).dimensions(right, top, 190, 20).build();
         this.addDrawableChild(toggleButton);
 
         intensityButton = ButtonWidget.builder(Text.empty(), btn -> {
             StormConfig.intensity = StormConfig.intensity % 3 + 1;
             StormConfig.save();
             refreshLabels();
-        }).dimensions(right, top + 22, 150, 20).build();
+        }).dimensions(right, top + 22, 190, 20).build();
         this.addDrawableChild(intensityButton);
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Test pop"), btn -> testPop())
-                .dimensions(right, top + 44, 150, 20).build());
+        // Time: how long the particles stay (1, 2 or 3 seconds)
+        timeButton = ButtonWidget.builder(Text.empty(), btn -> {
+            StormConfig.lifeSeconds = StormConfig.lifeSeconds % 3 + 1;
+            StormConfig.save();
+            refreshLabels();
+        }).dimensions(right, top + 44, 190, 20).build();
+        this.addDrawableChild(timeButton);
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Done"), btn -> close())
-                .dimensions(right, top + 6 * 22, 150, 20).build());
+                .dimensions(right, top + 6 * 22, 190, 20).build());
 
         refreshLabels();
     }
@@ -69,7 +74,7 @@ public class StormHudScreen extends Screen {
     private Text styleLabel(StormStyle s) {
         boolean selected = StormConfig.style == s;
         return Text.literal((selected ? "> " : "") + s.displayName)
-                .styled(st -> st.withColor(s == StormStyle.RAINBOW ? 0xFF77FF : s.color));
+                .styled(st -> st.withColor(s.color));
     }
 
     private void refreshLabels() {
@@ -78,19 +83,14 @@ public class StormHudScreen extends Screen {
             styleButtons.get(i).setMessage(styleLabel(styles[i]));
         }
         toggleButton.setMessage(Text.literal("Pop effect: " + (StormConfig.enabled ? "ON" : "OFF")));
-        String level = switch (StormConfig.intensity) { case 1 -> "Light"; case 3 -> "Heavy"; default -> "Normal"; };
+        String level = switch (StormConfig.intensity) {
+            case 1 -> "Low (1 block)";
+            case 3 -> "High (3.5 blocks)";
+            default -> "Normal (2.5 blocks)";
+        };
         intensityButton.setMessage(Text.literal("Intensity: " + level));
-    }
-
-    private void testPop() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null) return;
-        Vec3d look = mc.player.getRotationVec(1.0f);
-        StormParticles.spawn(StormConfig.style,
-                mc.player.getX() + look.x * 2.5,
-                mc.player.getY() + mc.player.getStandingEyeHeight() + look.y * 2.5,
-                mc.player.getZ() + look.z * 2.5,
-                look.x, look.z);
+        timeButton.setMessage(Text.literal("Time: " + StormConfig.lifeSeconds
+                + (StormConfig.lifeSeconds == 1 ? " second" : " seconds")));
     }
 
     @Override
