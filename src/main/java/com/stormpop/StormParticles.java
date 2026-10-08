@@ -1,6 +1,7 @@
 package com.stormpop;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleManager;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
@@ -124,7 +125,9 @@ public final class StormParticles {
             int rgb = style == StormStyle.RAINBOW
                     ? MathHelper.hsvToRgb(RNG.nextFloat(), 0.9f, 1.0f)
                     : style.color;
-            p.setColor(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
+            if (p instanceof BillboardParticle bp) {
+                bp.setColor(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
+            }
             p.scale(2.5f + RNG.nextFloat() * 1.5f);
             p.setMaxAge(LIFE_MIN + RNG.nextInt(LIFE_MAX - LIFE_MIN + 1));
         }
