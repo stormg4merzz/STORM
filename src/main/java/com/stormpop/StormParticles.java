@@ -26,7 +26,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public final class StormParticles {
     private static final Random RNG = new Random();
-    private static final float BIG = 4.0f;   // biggest size dust allows
+    /** Dust square size: smaller for a small effect, up to the biggest size dust allows (4.0). */
+    private static float size() {
+        return (float) Math.max(1.4, Math.min(4.0, 0.9 + StormConfig.reach() * 0.8));
+    }
     private static final int FRAMES = 8;     // animation steps per pop
 
     private static final ConcurrentLinkedQueue<Task> PENDING = new ConcurrentLinkedQueue<>();
@@ -57,8 +60,9 @@ public final class StormParticles {
                 it.remove();
                 try {
                     t.run.run();
-                } catch (RuntimeException ignored) {
-                    // never let a particle problem crash the game
+                } catch (RuntimeException e) {
+                    // never let a particle problem crash the game; tell the player once
+                    report("frame", e);
                 }
             }
         }
@@ -85,19 +89,13 @@ public final class StormParticles {
         double h = Math.max(0.9, R * 0.5);              // half height of the effect
         double p = (f + 1) / (double) FRAMES;           // progress 0..1
         currentStyle = style.displayName;
-        if (f == 0) {
-            MinecraftClient mc = MinecraftClient.getInstance();
-            if (mc.player != null) {
-                mc.player.sendMessage(Text.literal(style.displayName), true);
-            }
-        }
 
         switch (style) {
             case BLUE -> {
-                flames(pm, ParticleTypes.SOUL_FIRE_FLAME, x, y, z, R, h, cnt(6, R));
+                flames(pm, ParticleTypes.SOUL_FIRE_FLAME, x, y, z, R, h, cnt(4, R));
                 double r = R * p;
                 int pts = ringPoints(r);
-                for (double lvl : new double[] { -h * 0.8, 0, h * 0.8 }) {
+                for (double lvl : (R <= 1.5 ? new double[] { 0 } : new double[] { -h * 0.8, 0, h * 0.8 })) {
                     for (int i = 0; i < pts; i++) {
                         double a = Math.PI * 2 * i / pts;
                         dust(pm, style.color, 0x66C8FF, x + Math.cos(a) * r, y + lvl, z + Math.sin(a) * r);
@@ -140,19 +138,20 @@ public final class StormParticles {
                     }
                 }
             }
-            case TEAL -> {
-                flames(pm, ParticleTypes.WARPED_SPORE, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
-                // shockwave rings along the ground
-                for (double rr : new double[] { R * p, R * p * 0.6 }) {
-                    int pts = ringPoints(rr);
+            case RED -> {
+                // blood-red pulse: expanding rings plus sparks flying out
+                double r = R * p;
+                int pts = ringPoints(r);
+                for (double lvl : new double[] { -h * 0.5, h * 0.5 }) {
                     for (int i = 0; i < pts; i++) {
                         double a = Math.PI * 2 * i / pts;
-                        dust(pm, style.color, 0x00A58F, x + Math.cos(a) * rr, y - h + 0.15, z + Math.sin(a) * rr);
+                        dust(pm, style.color, 0x8A0000, x + Math.cos(a) * r, y + lvl, z + Math.sin(a) * r);
                     }
                 }
-                for (int i = 0; i < cnt(4, R); i++) {
-                    double[] pt = discPoint(R);
-                    dust(pm, style.color, 0x00A58F, x + pt[0], y + (RNG.nextDouble() - 0.5) * 2 * h, z + pt[1]);
+                for (int i = 0; i < cnt(6, R); i++) {
+                    double[] d = randomDir();
+                    double rr = R * p * (0.8 + 0.2 * RNG.nextDouble());
+                    dust(pm, 0xFF5050, 0x8A0000, x + d[0] * rr, y + d[1] * rr * (h / R), z + d[2] * rr);
                 }
             }
             case WHITE -> {
@@ -221,9 +220,9 @@ public final class StormParticles {
     /** Coloured dust square that fades from colour a to colour b. */
     private static void dust(ParticleManager pm, int a, int b, double x, double y, double z) {
         if (a == b) {
-            add(pm, new DustParticleEffect(a, BIG), x, y, z, 0, 0, 0);
+            add(pm, new DustParticleEffect(a, size()), x, y, z, 0, 0, 0);
         } else {
-            add(pm, new DustColorTransitionParticleEffect(a, b, BIG), x, y, z, 0, 0, 0);
+            add(pm, new DustColorTransitionParticleEffect(a, b, size()), x, y, z, 0, 0, 0);
         }
     }
 
@@ -262,7 +261,7 @@ public final class StormParticles {
     }
 
     private static int ringPoints(double r) {
-        return Math.max(8, (int) Math.round(Math.PI * 2 * r * 3));
+        return Math.max(6, (int) Math.round(Math.PI * 2 * r * 2));
     }
 
     /** Random point inside a flat circle of radius R. */
