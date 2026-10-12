@@ -1,36 +1,34 @@
 package com.stormpop;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleManager;
-import net.minecraft.particle.DustColorTransitionParticleEffect;
-import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleEffect;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.text.Text;
 
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Better POP by STORMG4MERX - the pop effects.
  * Inspired by impact flash-lite by flamesentinell.
  *
- * Every pop is split into FRAMES small steps that run on consecutive ticks, so
- * rings expand, spirals turn and fire rises (animation). The HUD "Intensity"
- * sets how far the effect spreads (1 / 2.5 / 3.5 blocks) and the HUD "Time"
- * sets how long each particle lives (1 / 2 / 3 seconds).
+ * Every style has its own particle shape with its own texture (see StormParticleTypes),
+ * so texture packs cannot change how they look:
+ *   BLUE = blue flames, LIME = star sparks, GOLD = crystal shards,
+ *   PINK = cherry blossoms, RED = circle rings, WHITE = lightning, FIRE = real fire.
+ *
+ * A pop is split into FRAMES steps that run on consecutive ticks (animation).
+ * HUD "Intensity" = how far it spreads (1 / 2.5 / 3.5 blocks),
+ * HUD "Time" = how long particles live (1 / 2 / 3 seconds).
  */
 public final class StormParticles {
     private static final Random RNG = new Random();
-    /** Dust square size: smaller for a small effect, up to the biggest size dust allows (4.0). */
-    private static float size() {
-        return (float) Math.max(1.4, Math.min(4.0, 0.9 + StormConfig.reach() * 0.8));
-    }
-    private static final int FRAMES = 8;     // animation steps per pop
+    private static final int FRAMES = 8;
 
     private static final ConcurrentLinkedQueue<Task> PENDING = new ConcurrentLinkedQueue<>();
     private static final Set<String> REPORTED = new HashSet<>();
@@ -68,7 +66,7 @@ public final class StormParticles {
         }
     }
 
-    /** y = middle of the target. dirX/dirZ = unused for most styles. */
+    /** y = middle of the target. */
     public static void spawn(StormStyle style, double x, double y, double z, double dirX, double dirZ) {
         long now = System.currentTimeMillis();
         // ignore the same pop arriving twice
@@ -92,152 +90,116 @@ public final class StormParticles {
 
         switch (style) {
             case BLUE -> {
-                flames(pm, ParticleTypes.SOUL_FIRE_FLAME, x, y, z, R, h, cnt(4, R));
-                double r = R * p;
-                int pts = ringPoints(r);
-                for (double lvl : (R <= 1.5 ? new double[] { 0 } : new double[] { -h * 0.8, 0, h * 0.8 })) {
-                    for (int i = 0; i < pts; i++) {
-                        double a = Math.PI * 2 * i / pts;
-                        dust(pm, style.color, 0x66C8FF, x + Math.cos(a) * r, y + lvl, z + Math.sin(a) * r);
-                    }
+                // blue flames rising around the player + a few sparkles
+                for (int i = 0; i < cnt(5, R); i++) {
+                    double[] pt = discPoint(R);
+                    spawnOne(pm, StormParticleTypes.FLAME, x + pt[0], y - h + RNG.nextDouble() * h * 1.6, z + pt[1],
+                            (RNG.nextDouble() - 0.5) * 0.03, 0.05 + RNG.nextDouble() * 0.08, (RNG.nextDouble() - 0.5) * 0.03,
+                            style.color, 2.5f + RNG.nextFloat() * 1.5f);
+                }
+                for (int i = 0; i < cnt(2, R); i++) {
+                    double[] pt = discPoint(R);
+                    spawnOne(pm, StormParticleTypes.STAR, x + pt[0], y + (RNG.nextDouble() - 0.5) * 2 * h, z + pt[1],
+                            0, 0.02, 0, 0x9CC8FF, 1.4f + RNG.nextFloat());
                 }
             }
             case LIME -> {
-                flames(pm, ParticleTypes.HAPPY_VILLAGER, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
-                // sparks flying out in a sphere
-                for (int i = 0; i < cnt(12, R); i++) {
+                // star sparks flying out in a sphere
+                for (int i = 0; i < cnt(8, R); i++) {
                     double[] d = randomDir();
                     double r = R * p * (0.8 + 0.2 * RNG.nextDouble());
-                    dust(pm, style.color, 0x1E8A00,
-                            x + d[0] * r, y + d[1] * r * (h / R), z + d[2] * r);
+                    spawnOne(pm, StormParticleTypes.STAR, x + d[0] * r, y + d[1] * r * (h / R), z + d[2] * r,
+                            d[0] * 0.02, d[1] * 0.02, d[2] * 0.02,
+                            style.color, 1.6f + RNG.nextFloat() * 1.2f);
                 }
             }
             case GOLD -> {
-                flames(pm, ParticleTypes.WAX_ON, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
-                // streaks shooting out all around, each with a short tail
-                for (int i = 0; i < cnt(8, R); i++) {
+                // crystal shards shooting out all around
+                for (int i = 0; i < cnt(7, R); i++) {
                     double a = RNG.nextDouble() * Math.PI * 2;
                     double yy = y + (RNG.nextDouble() - 0.5) * 2 * h * 0.8;
                     double dist = R * p * (0.6 + 0.4 * RNG.nextDouble());
-                    for (int k = 0; k < 4; k++) {
-                        double d = dist * (1.0 - k * 0.12);
-                        dust(pm, style.color, 0xFFF0A0, x + Math.cos(a) * d, yy, z + Math.sin(a) * d);
-                    }
+                    spawnOne(pm, StormParticleTypes.DIAMOND, x + Math.cos(a) * dist, yy, z + Math.sin(a) * dist,
+                            Math.cos(a) * 0.04, 0, Math.sin(a) * 0.04,
+                            style.color, 1.8f + RNG.nextFloat() * 1.4f);
                 }
             }
             case PINK -> {
-                flames(pm, ParticleTypes.CHERRY_LEAVES, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
-                // two spiral arms that turn and rise
-                int n = cnt(10, R);
-                for (int arm = 0; arm < 2; arm++) {
-                    for (int j = 0; j < n; j++) {
-                        double a = f * 0.6 + j * 0.5 + arm * Math.PI;
-                        double rad = R * (j + 1) / n;
-                        double yy = y - h + 2 * h * (j + 1) / n;
-                        dust(pm, style.color, 0xFF8CC8, x + Math.cos(a) * rad, yy, z + Math.sin(a) * rad);
-                    }
+                // cherry blossoms drifting down around the player
+                for (int i = 0; i < cnt(6, R); i++) {
+                    double[] pt = discPoint(R);
+                    spawnOne(pm, StormParticleTypes.PETAL, x + pt[0], y + (RNG.nextDouble() - 0.2) * h * 1.4, z + pt[1],
+                            (RNG.nextDouble() - 0.5) * 0.04, -0.02 - RNG.nextDouble() * 0.03, (RNG.nextDouble() - 0.5) * 0.04,
+                            style.color, 2.0f + RNG.nextFloat() * 1.5f);
                 }
             }
             case RED -> {
-                // blood-red pulse: expanding rings plus sparks flying out
-                double r = R * p;
-                int pts = ringPoints(r);
-                for (double lvl : new double[] { -h * 0.5, h * 0.5 }) {
-                    for (int i = 0; i < pts; i++) {
-                        double a = Math.PI * 2 * i / pts;
-                        dust(pm, style.color, 0x8A0000, x + Math.cos(a) * r, y + lvl, z + Math.sin(a) * r);
+                // big circle rings around the player, growing outward
+                if (f % 2 == 0) {
+                    double ringR = Math.max(0.5, R * p * 1.1);
+                    for (int k = 0; k < 2; k++) {
+                        spawnOne(pm, StormParticleTypes.RING, x, y, z, 0, 0, 0,
+                                style.color, (float) (ringR / 0.15 * (0.9 + 0.2 * k)));
                     }
                 }
-                for (int i = 0; i < cnt(6, R); i++) {
+                for (int i = 0; i < cnt(3, R); i++) {
                     double[] d = randomDir();
-                    double rr = R * p * (0.8 + 0.2 * RNG.nextDouble());
-                    dust(pm, 0xFF5050, 0x8A0000, x + d[0] * rr, y + d[1] * rr * (h / R), z + d[2] * rr);
+                    double r = R * p;
+                    spawnOne(pm, StormParticleTypes.STAR, x + d[0] * r, y + d[1] * r * (h / R), z + d[2] * r,
+                            0, 0, 0, 0xFF6060, 1.2f + RNG.nextFloat());
                 }
             }
             case WHITE -> {
-                flames(pm, ParticleTypes.END_ROD, x, y, z, R, h, cnt(6, R), 1.5f, 1.0f);
                 // lightning bolts, new ones every 3rd step
                 if (f % 3 == 0) {
                     int bolts = (int) Math.max(1, Math.round(R));
                     for (int b = 0; b < bolts; b++) {
                         double[] pt = discPoint(R);
-                        double cx = x + pt[0];
-                        double cz = z + pt[1];
-                        double top = y + h * 2.2;
-                        for (double yy = top; yy > y - h; yy -= 0.1) {
-                            cx += (RNG.nextDouble() - 0.5) * 0.3;
-                            cz += (RNG.nextDouble() - 0.5) * 0.3;
-                            dust(pm, 0xFFFFFF, 0x66E0FF, cx, yy, cz);
+                        for (int k = 0; k < 3; k++) {
+                            spawnOne(pm, StormParticleTypes.BOLT,
+                                    x + pt[0] + (RNG.nextDouble() - 0.5) * 0.3, y + h * 1.2 - k * h * 0.9, z + pt[1] + (RNG.nextDouble() - 0.5) * 0.3,
+                                    0, 0, 0, 0xCFF3FF, 4.0f + RNG.nextFloat() * 1.5f);
                         }
                     }
                 }
-                for (int i = 0; i < cnt(5, R); i++) {
+                for (int i = 0; i < cnt(3, R); i++) {
                     double[] pt = discPoint(R);
-                    dust(pm, 0xFFFFFF, 0x66E0FF, x + pt[0], y + (RNG.nextDouble() - 0.5) * 2 * h, z + pt[1]);
+                    spawnOne(pm, StormParticleTypes.STAR, x + pt[0], y + (RNG.nextDouble() - 0.5) * 2 * h, z + pt[1],
+                            0, 0, 0, 0xFFFFFF, 1.2f + RNG.nextFloat());
                 }
             }
             case FIRE -> {
-                // real fire: flame sprites rising, hot colours, a few embers
-                flames(pm, ParticleTypes.FLAME, x, y, z, R, h, cnt(10, R));
-                for (int i = 0; i < cnt(8, R); i++) {
+                // real fire: flame sprites rising from the ground to above the head
+                for (int i = 0; i < cnt(9, R); i++) {
                     double[] pt = discPoint(R);
-                    dust(pm, 0xFFD21F, 0xFF2A00, x + pt[0], y + (RNG.nextDouble() - 0.5) * 2 * h, z + pt[1]);
-                }
-                if (f % 2 == 0) {
-                    for (int i = 0; i < cnt(2, R); i++) {
-                        double[] pt = discPoint(R);
-                        add(pm, ParticleTypes.LAVA, x + pt[0], y + (RNG.nextDouble() - 0.3) * h, z + pt[1], 0, 0, 0);
-                    }
+                    spawnOne(pm, StormParticleTypes.FIRE, x + pt[0], y - h + RNG.nextDouble() * h * 1.4, z + pt[1],
+                            (RNG.nextDouble() - 0.5) * 0.04, 0.07 + RNG.nextDouble() * 0.10, (RNG.nextDouble() - 0.5) * 0.04,
+                            -1, 2.5f + RNG.nextFloat() * 1.5f);
                 }
             }
         }
     }
 
-    /** Flame-shaped particles rising from the ground to head height inside the effect area. */
-    private static void flames(ParticleManager pm, ParticleEffect type,
-                               double x, double y, double z, double R, double h, int count) {
-        flames(pm, type, x, y, z, R, h, count, 2.5f, 1.5f);
-    }
-
-    private static void flames(ParticleManager pm, ParticleEffect type,
-                               double x, double y, double z, double R, double h, int count,
-                               float minScale, float extraScale) {
-        for (int i = 0; i < count; i++) {
-            double[] pt = discPoint(R);
-            double py = y - h + RNG.nextDouble() * h * 1.4;
-            Particle fp = add(pm, type, x + pt[0], py, z + pt[1],
-                    (RNG.nextDouble() - 0.5) * 0.04, 0.07 + RNG.nextDouble() * 0.10, (RNG.nextDouble() - 0.5) * 0.04);
-            if (fp != null) {
-                try {
-                    fp.scale(minScale + RNG.nextFloat() * extraScale);
-                } catch (RuntimeException e) {
-                    report("scale", e);
-                }
-            }
-        }
-    }
-
-    /** Coloured dust square that fades from colour a to colour b. */
-    private static void dust(ParticleManager pm, int a, int b, double x, double y, double z) {
-        if (a == b) {
-            add(pm, new DustParticleEffect(a, size()), x, y, z, 0, 0, 0);
-        } else {
-            add(pm, new DustColorTransitionParticleEffect(a, b, size()), x, y, z, 0, 0, 0);
-        }
-    }
-
-    /** Adds one particle and sets how long it lives (HUD "Time"). A failing particle never stops the others. */
-    private static Particle add(ParticleManager pm, ParticleEffect effect,
-                                double x, double y, double z, double vx, double vy, double vz) {
+    /**
+     * Spawns one particle of our own type, tints it (rgb < 0 = keep the texture colours),
+     * sizes it and sets how long it lives (HUD "Time"). A failing particle never stops the others.
+     */
+    private static void spawnOne(ParticleManager pm, ParticleEffect type,
+                                 double x, double y, double z, double vx, double vy, double vz,
+                                 int rgb, float scale) {
         try {
-            Particle particle = pm.addParticle(effect, x, y, z, vx, vy, vz);
-            if (particle != null) {
-                particle.setMaxAge(lifeTicks());
+            Particle particle = pm.addParticle(type, x, y, z, vx, vy, vz);
+            if (particle == null) {
+                report("missing particle", new IllegalStateException("particle type not registered"));
+                return;
             }
-            return particle;
+            if (rgb >= 0 && particle instanceof BillboardParticle bp) {
+                bp.setColor(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
+            }
+            particle.scale(scale);
+            particle.setMaxAge(lifeTicks());
         } catch (RuntimeException e) {
-            report(effect.getClass().getSimpleName(), e);
-            return null;
+            report(type.getClass().getSimpleName(), e);
         }
     }
 
@@ -258,10 +220,6 @@ public final class StormParticles {
     /** Base particle count scaled by the spread, so a wider effect gets more particles. */
     private static int cnt(int base, double R) {
         return (int) Math.max(1, Math.round(base * R));
-    }
-
-    private static int ringPoints(double r) {
-        return Math.max(6, (int) Math.round(Math.PI * 2 * r * 2));
     }
 
     /** Random point inside a flat circle of radius R. */

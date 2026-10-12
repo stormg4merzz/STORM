@@ -18,6 +18,7 @@ public class StormClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         StormConfig.load();
+        StormParticleTypes.register();
 
         // /storm  ->  opens the HUD (opened on the next tick, because chat closes itself after a command)
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
